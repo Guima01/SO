@@ -12,8 +12,6 @@
 #include "lottery.h"
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
-#include <stdlib.h>
 
 //Nome unico do algoritmo. Deve ter 4 caracteres.
 const char lottName[] = "LOTT";
@@ -59,7 +57,6 @@ Process *lottSchedule(Process *plist)
 		}
 	}
 
-	srand(time(NULL));
 	int ticket = rand() % ticketsTotal;
 	int aux = 0;
 	for (Process *p = plist; p != NULL; p = processGetNext(p))
