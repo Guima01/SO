@@ -14,8 +14,8 @@
 #include <string.h>
 
 //Nome unico do algoritmo. Deve ter 4 caracteres.
-const char lottName[] = "LOTT";
 int slot;
+const char lottName[] = "LOTT";
 
 //=====Funcoes Auxiliares=====
 
@@ -32,7 +32,6 @@ void lottInitSchedInfo()
 	sched->initParamsFn = lottInitSchedParams;
 	sched->scheduleFn = lottSchedule;
 	sched->releaseParamsFn = lottReleaseParams;
-
 	slot = schedRegisterScheduler(sched);
 }
 
@@ -40,35 +39,38 @@ void lottInitSchedInfo()
 //normalmente quando o processo e' associado ao slot de Lottery
 void lottInitSchedParams(Process *p, void *params)
 {
-	schedSetScheduler(p, params, slot);
+	processSetSchedParams(p,params);
+	processSetSchedSlot(p,slot);
 }
 
 //Retorna o proximo processo a obter a CPU, conforme o algortimo Lottery
 Process *lottSchedule(Process *plist)
 {
 	int ticketsTotal = 0;
-	for (Process *p = plist; p != NULL; p = processGetNext(p))
-	{
-		LotterySchedParams *sched_params = processGetSchedParams(p);
-		int status = processGetStatus(p);
-		if (status!= PROC_WAITING)
-		{
-			ticketsTotal += sched_params->num_tickets;
+	Process *proc = plist;
+	while(proc != NULL){
+		LotterySchedParams *schedParams = processGetSchedParams(proc);
+
+		int status = processGetStatus(proc);
+
+		if (status!= 2){
+			ticketsTotal = ticketsTotal + schedParams->num_tickets;
 		}
+		proc = processGetNext(proc);
 	}
 
 	int ticket = rand() % ticketsTotal;
 	int aux = 0;
-	for (Process *p = plist; p != NULL; p = processGetNext(p))
-	{
-		LotterySchedParams *sched_params = processGetSchedParams(p);
-		int status = processGetStatus(p);
-		if (status != PROC_WAITING)
-		{
-			aux += sched_params->num_tickets;
+	Process *proc2 = plist;
+	while(proc2 != NULL){
+		LotterySchedParams *schedParams = processGetSchedParams(proc2);
+		int status = processGetStatus(proc2);
+		if (status != 2){
+			aux = aux + schedParams->num_tickets;
 			if (ticket <= aux)
-				return p;
+				return proc2;
 		}
+		proc2 = processGetNext(proc2);
 	}
 	return NULL;
 }
@@ -78,10 +80,8 @@ Process *lottSchedule(Process *plist)
 //Retorna o numero do slot ao qual o processo estava associado
 int lottReleaseParams(Process *p)
 {
-	free(processGetSchedParams(p));
-	processSetSchedParams(p, NULL);
-	processSetSchedSlot(p, -1);
-
+	LotterySchedParams *lspOld = processGetSchedParams(p);
+	free(lspOld);
 	return slot;
 }
 
@@ -89,22 +89,16 @@ int lottReleaseParams(Process *p)
 //Retorna o numero de tickets efetivamente transfeirdos (pode ser menos)
 int lottTransferTickets(Process *src, Process *dst, int tickets)
 {
-	int ticketsTransferidos = 0;
-	LotterySchedParams *sched_params1 = processGetSchedParams(src);
-	LotterySchedParams *sched_params2 = processGetSchedParams(dst);
+	LotterySchedParams *schedParams1 = processGetSchedParams(src);
+	LotterySchedParams *schedParams2 = processGetSchedParams(dst);
 
-	if (sched_params1->num_tickets >= tickets)
-	{
-		sched_params1->num_tickets -= tickets;
-		sched_params2->num_tickets += tickets;
-		ticketsTransferidos = tickets;
+	if(schedParams1->num_tickets > 0){
+		if(schedParams1->num_tickets - tickets < 0){
+			tickets = schedParams1->num_tickets - 1;
+		}
+		schedParams1->num_tickets -= tickets;
+		schedParams2->num_tickets += tickets;
+		return tickets;
 	}
-	else
-	{
-		sched_params2->num_tickets = sched_params1->num_tickets;
-		ticketsTransferidos = sched_params1->num_tickets;
-		sched_params1->num_tickets = 0;
-	}
-
-	return ticketsTransferidos;
+	return 0;
 }
